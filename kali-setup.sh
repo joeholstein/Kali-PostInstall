@@ -38,11 +38,21 @@ chown -R kali:kali /home/kali/vpn-configs
 chown -R kali:kali /home/kali/git-repos
 chown -R kali:kali /home/kali/shares
 
-# Disable screen lock
-gsettings set org.gnome.desktop.session idle-delay 0
+# Disable screensaver and lock screen
+xfconf-query -c xfce4-session -p /general/LockCommand -s ""
+xfconf-query -c xfce4-session -p /general/LockScreen -s false
 
-# Configure power settings to not suspend on AC power
-gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-ac-type 'nothing'
+# Disable light-locker
+xfconf-query -c xfce4-session -p /general/LockCommand -s "xflock4" # Set it back to default first if it was changed
+xfconf-query -c light-locker -p /lock-on-suspend -s false
+xfconf-query -c light-locker -p /lock-after-screensaver -s false
+xfconf-query -c light-locker -p /idle-delay -s 0
+
+# Disable Power Manager
+xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/blank-on-ac -s 0 # Disable screen blanking
+xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/dpms-on-ac-timeout -s 0 # Disable DPMS timeout
+xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/lid-action-on-ac -s 0 # Do nothing when lid closed on AC
+xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/inactivity-on-ac -s 0 # Do nothing on inactivity
 
 # Enable and configure firewall
 ufw enable
