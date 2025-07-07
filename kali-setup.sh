@@ -10,3 +10,8 @@ KALI_HOME="/home/$KALI_USER"
 
 # Create a .config directory if it doesn't exist
 mkdir -p $KALI_HOME/.config
+
+# Update and upgrade the system
+apt-get update -y || { echo "apt-get update failed"; exit 1; }
+apt-get upgrade -y || { echo "apt-get upgrade failed"; exit 1; }
+apt-get dist-upgrade -y || { echo "apt-get dist-upgrade failed"; exit 1; }
