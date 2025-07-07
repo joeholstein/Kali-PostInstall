@@ -11,10 +11,8 @@ RUSTDESK_LATEST_JSON=$(curl -s "https://api.github.com/repos/rustdesk/rustdesk/r
 # ---
 
 # Check if curl command was successful and returned content.
-# If RUSTDESK_LATEST_JSON is empty, something went wrong with fetching the data.
-if [ -z "$RUSTDES_LATEST_JSON" ]; then
-    echo "Error: Failed to retrieve release information from GitHub."
-    echo "Please check your internet connection or verify the GitHub API status."
+if [ -z "$RUSTDESK_LATEST_JSON" ]; then
+    echo "Error: Failed to retrieve release information from GitHub. Check your internet connection or the GitHub API status."
     exit 1
 fi
 
@@ -22,18 +20,26 @@ fi
 ## Step 2: Extract Download URL
 # ---
 
-# Attempt to extract the download URL for the amd64.deb file using grep with Perl-compatible Regular Expressions (PCRE).
-# -o: Only output the matched part.
-# -P: Enable PCRE. This is crucial for \K.
-# "\K": Resets the starting point of the match, so only what follows is included in the output.
-# "[^"]*": Matches any character that is NOT a double quote, zero or more times, effectively capturing the URL until the next quote.
-# "\amd64\.deb": Ensures we only target the correct architecture and file type.
-RUSTDESK_DOWNLOAD_URL=$(echo "$RUSTDESK_LATEST_JSON" | grep -oP '"browser_download_url": "\K[^"]*amd64\.deb' | head -n 1)
+# *** CORRECTION HERE: Changed 'amd64.deb' to 'x86_64.deb' in the regex. ***
+# Also, filtering by 'name' first is more precise than just looking in the URL.
+RUSTDESK_DOWNLOAD_URL=$(echo "$RUSTDESK_LATEST_JSON" | \
+  grep -oP '"name": "rustdesk-[^"]*x86_64\.deb",.*?"browser_download_url": "\K[^"]*' | head -n 1)
 
-# Check if a URL was successfully extracted.
+# Explanation of the new grep regex:
+# '"name": "rustdesk-[^"]*x86_64\.deb",': This looks for the asset name field
+#                                         that contains 'rustdesk-' followed by anything,
+#                                         then 'x86_64.deb'. This is more robust as it
+#                                         directly targets the name field.
+# '.*?"browser_download_url": "': Matches any characters non-greedily (.*?) until it finds
+#                                  the 'browser_download_url' key.
+# '\K': Resets the match, so only what follows is captured.
+# '[^"]*': Captures the URL itself, which is any character not a double quote.
+
+
+# Check if a URL was successfully extracted
 if [ -z "$RUSTDESK_DOWNLOAD_URL" ]; then
-    echo "Error: Could not find the RustDesk amd64.deb download URL in the GitHub API response."
-    echo "The naming convention might have changed, or the 'grep -P' command didn't find a match."
+    echo "Error: Could not find the RustDesk x86_64.deb download URL in the GitHub API response."
+    echo "The naming convention might have changed, or grep -P is not available/working as expected."
     echo "For a more robust solution, consider installing 'jq' (sudo apt install jq) for JSON parsing."
     exit 1
 fi
@@ -48,7 +54,7 @@ echo "Successfully identified RustDesk download URL: $RUSTDESK_DOWNLOAD_URL"
 # -O: Specifies the output filename and location.
 wget "$RUSTDESK_DOWNLOAD_URL" -O /tmp/rustdesk.deb
 
-# Check if wget was successful (exit code 0 means success).
+# Check if wget was successful
 if [ $? -ne 0 ]; then
     echo "Error: Failed to download rustdesk.deb using wget."
     echo "Please verify the download URL or your network connection."
