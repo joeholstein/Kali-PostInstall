@@ -16,7 +16,7 @@ echo "##"
 echo "## Configuring basic system settings..."
 echo "##"
 # Set hostname
-hostnamectl set-hostname $HOSTNAME || { echo "Failed to set hostname"; exit 1; }
+# hostnamectl set-hostname $HOSTNAME || { echo "Failed to set hostname"; exit 1; }
 
 # Update and upgrade the system
 apt-get update -y || { echo "apt-get update failed"; exit 1; }
