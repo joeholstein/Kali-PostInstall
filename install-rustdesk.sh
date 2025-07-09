@@ -1,46 +1,49 @@
 #!/bin/bash
 
-echo "Starting RustDesk .deb package download and installation for Kali Linux..."
+echo "Starting RustDesk .deb package download and installation for Kali Linux using jq..."
+
+# ---
+## Step 0: Check for and install jq
+# ---
+if ! command -v jq &> /dev/null; then
+    echo "jq is not installed. Attempting to install jq..."
+    sudo apt update
+    sudo apt install -y jq
+    if ! command -v jq &> /dev/null; then
+        echo "Error: Failed to install jq. Please install jq manually (sudo apt install jq) and try again."
+        exit 1
+    fi
+    echo "jq installed successfully."
+fi
+
+# ---
+## Step 1: Fetch GitHub API Response
+# ---
 
 # Fetch the entire JSON response from GitHub's latest release API
-# -s makes curl silent, avoiding progress meters and error messages for cleaner output.
 RUSTDESK_LATEST_JSON=$(curl -s "https://api.github.com/repos/rustdesk/rustdesk/releases/latest")
 
-# ---
-## Step 1: Validate GitHub API Response
-# ---
-
-# Check if curl command was successful and returned content.
+# Check if curl command was successful and returned content
 if [ -z "$RUSTDESK_LATEST_JSON" ]; then
     echo "Error: Failed to retrieve release information from GitHub. Check your internet connection or the GitHub API status."
     exit 1
 fi
 
 # ---
-## Step 2: Extract Download URL
+## Step 2: Extract Download URL using jq
 # ---
 
-# *** CORRECTION HERE: Changed 'amd64.deb' to 'x86_64.deb' in the regex. ***
-# Also, filtering by 'name' first is more precise than just looking in the URL.
-RUSTDESK_DOWNLOAD_URL=$(echo "$RUSTDESK_LATEST_JSON" | \
-  grep -oP '"name": "rustdesk-[^"]*x86_64\.deb",.*?"browser_download_url": "\K[^"]*' | head -n 1)
-
-# Explanation of the new grep regex:
-# '"name": "rustdesk-[^"]*x86_64\.deb",': This looks for the asset name field
-#                                         that contains 'rustdesk-' followed by anything,
-#                                         then 'x86_64.deb'. This is more robust as it
-#                                         directly targets the name field.
-# '.*?"browser_download_url": "': Matches any characters non-greedily (.*?) until it finds
-#                                  the 'browser_download_url' key.
-# '\K': Resets the match, so only what follows is captured.
-# '[^"]*': Captures the URL itself, which is any character not a double quote.
-
+# Use jq to parse the JSON and find the browser_download_url for the x86_64.deb asset.
+# .assets[]: iterate over each asset in the 'assets' array.
+# select(.name | contains("x86_64.deb")): filter for assets whose 'name' contains "x86_64.deb".
+# .browser_download_url: extract the download URL from the selected asset.
+# -r: output raw strings (without JSON quotes).
+RUSTDESK_DOWNLOAD_URL=$(echo "$RUSTDESK_LATEST_JSON" | jq -r '.assets[] | select(.name | contains("x86_64.deb")) | .browser_download_url')
 
 # Check if a URL was successfully extracted
 if [ -z "$RUSTDESK_DOWNLOAD_URL" ]; then
-    echo "Error: Could not find the RustDesk x86_64.deb download URL in the GitHub API response."
-    echo "The naming convention might have changed, or grep -P is not available/working as expected."
-    echo "For a more robust solution, consider installing 'jq' (sudo apt install jq) for JSON parsing."
+    echo "Error: Could not find the RustDesk x86_64.deb download URL using jq."
+    echo "This might mean the naming convention for the Debian package has changed."
     exit 1
 fi
 
@@ -51,7 +54,6 @@ echo "Successfully identified RustDesk download URL: $RUSTDESK_DOWNLOAD_URL"
 # ---
 
 # Download the .deb package to the /tmp directory.
-# -O: Specifies the output filename and location.
 wget "$RUSTDESK_DOWNLOAD_URL" -O /tmp/rustdesk.deb
 
 # Check if wget was successful
@@ -70,8 +72,6 @@ echo "RustDesk .deb package downloaded to /tmp/rustdesk.deb"
 echo "Attempting to install RustDesk and resolve any missing dependencies..."
 
 # Install RustDesk using dpkg.
-# -i: Installs the package.
-# --skip-same-version: Useful if you run the script multiple times to avoid re-installing the same version.
 sudo dpkg -i /tmp/rustdesk.deb
 
 # After a direct 'dpkg -i' install, dependencies are often not met.
